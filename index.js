@@ -8,32 +8,50 @@ app.use(cors());
 app.use(express.json());
 
 const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-  },
-});
+let usuarios = {}; // nome → socket.id
 
-// Quando um cliente conecta
 io.on("connection", (socket) => {
-  console.log("Cliente conectado:", socket.id);
+  console.log("Novo cliente conectado:", socket.id);
 
-  // Recebe alerta e envia para todos
-  socket.on("alert", (msg) => {
-    console.log("Alerta recebido:", msg);
-    io.emit("alert", msg); 
+  // Registrar nome do usuário
+  socket.on("registrar_usuario", (nome) => {
+    usuarios[nome] = socket.id;
+    console.log(`Usuário registrado: ${nome} -> ${socket.id}`);
+
+    io.emit("lista_usuarios", Object.keys(usuarios));
   });
 
+  // Mensagem geral
+  socket.on("alert", (data) => {
+    io.emit("alert", data);
+  });
+
+  // Mensagem privada
+  socket.on("mensagem_privada", ({ de, para, mensagem }) => {
+    const destino = usuarios[para];
+    if (destino) {
+      io.to(destino).emit("alert", {
+        de,
+        mensagem,
+        tipo: "privado"
+      });
+    }
+  });
+
+  // Usuário desconectou
   socket.on("disconnect", () => {
+    for (const nome in usuarios) {
+      if (usuarios[nome] === socket.id) {
+        delete usuarios[nome];
+      }
+    }
+    io.emit("lista_usuarios", Object.keys(usuarios));
     console.log("Cliente desconectado:", socket.id);
   });
 });
 
-app.get("/", (req, res) => {
-  res.send("Servidor de alertas rodando 👍");
-});
-
-// Porta do Railway
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));
+server.listen(process.env.PORT || 3000, () =>
+  console.log("Servidor rodando")
+);
