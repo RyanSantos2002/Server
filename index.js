@@ -1,8 +1,8 @@
-/* ARQUIVO: server.js (BACKEND) */
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
+/* ARQUIVO: server.js (BACKEND ATUALIZADO PARA ES MODULES) */
+import cors from "cors";
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
 app.use(cors());
@@ -19,7 +19,6 @@ const io = new Server(server, {
 });
 
 // MEMÓRIA DO SERVIDOR: Mapeia socket.id -> Nome do Usuário
-// Usamos Map para facilitar a busca
 let usuarios = {}; 
 
 io.on("connection", (socket) => {
@@ -27,19 +26,12 @@ io.on("connection", (socket) => {
 
   // 1. REGISTRAR USUÁRIO
   socket.on("registrar_usuario", (nome) => {
-    // Remove registros antigos desse socket se houver
-    const antigoNome = usuarios[socket.id];
-    if (antigoNome) {
-        // Se já tinha nome, só atualiza
-    }
-    
     // Salva o novo usuário
     usuarios[socket.id] = nome;
     console.log(`✅ Registrado: ${nome} (ID: ${socket.id})`);
 
-    // MANDA A LISTA ATUALIZADA PARA TODOS (incluindo quem acabou de entrar)
-    // Object.values pega apenas os nomes, sem os IDs
-    const listaNomes = [...new Set(Object.values(usuarios))]; // Remove duplicados visuais
+    // MANDA A LISTA ATUALIZADA PARA TODOS
+    const listaNomes = [...new Set(Object.values(usuarios))]; 
     io.emit("lista_usuarios", listaNomes);
   });
 
@@ -51,7 +43,6 @@ io.on("connection", (socket) => {
   // 3. MENSAGEM PRIVADA
   socket.on("mensagem_privada", ({ de, para, mensagem }) => {
     // Procura o socket ID do destinatário pelo nome
-    // (Nota: Se tiver 2 Ryans, manda pro primeiro que achar)
     const socketDestino = Object.keys(usuarios).find(key => usuarios[key] === para);
 
     if (socketDestino) {
