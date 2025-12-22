@@ -1,4 +1,3 @@
-/* ARQUIVO: server.js (BACKEND ATUALIZADO PARA ES MODULES) */
 import cors from "cors";
 import express from "express";
 import http from "http";
@@ -10,7 +9,6 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
-// Configuração do Socket.IO permitindo conexão de qualquer lugar
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -18,53 +16,72 @@ const io = new Server(server, {
   }
 });
 
-// MEMÓRIA DO SERVIDOR: Mapeia socket.id -> Nome do Usuário
-let usuarios = {}; 
+// ===== MEMÓRIA =====
+let maquinas = {};       // TODAS as máquinas cadastradas
+let online = {};         // machineId -> socket.id
+let filaAlertas = {};    // machineId -> [mensagens]
 
+// ===== SOCKET =====
 io.on("connection", (socket) => {
-  console.log(`🔌 Conectado: ${socket.id}`);
+  console.log("🔌 Conectado:", socket.id);
 
-  // 1. REGISTRAR USUÁRIO
-  socket.on("registrar_usuario", (nome) => {
-    // Salva o novo usuário
-    usuarios[socket.id] = nome;
-    console.log(`✅ Registrado: ${nome} (ID: ${socket.id})`);
+  // REGISTRAR MÁQUINA
+  socket.on("registrar_maquina", ({ id, nome }) => {
+    maquinas[id] = { id, nome };
+    online[id] = socket.id;
 
-    // MANDA A LISTA ATUALIZADA PARA TODOS
-    const listaNomes = [...new Set(Object.values(usuarios))]; 
-    io.emit("lista_usuarios", listaNomes);
-  });
+    console.log(`✅ Máquina registrada: ${id} (${nome})`);
 
-  // 2. MENSAGEM GERAL
-  socket.on("alert", (data) => {
-    io.emit("alert", data);
-  });
-
-  // 3. MENSAGEM PRIVADA
-  socket.on("mensagem_privada", ({ de, para, mensagem }) => {
-    // Procura o socket ID do destinatário pelo nome
-    const socketDestino = Object.keys(usuarios).find(key => usuarios[key] === para);
-
-    if (socketDestino) {
-      io.to(socketDestino).emit("alert", {
-        de,
-        mensagem,
-        tipo: "privado"
+    // Enviar alertas pendentes
+    if (filaAlertas[id]) {
+      filaAlertas[id].forEach(msg => {
+        socket.emit("alert", msg);
       });
+      delete filaAlertas[id];
+    }
+
+    io.emit("lista_maquinas", {
+      todas: Object.values(maquinas),
+      online: Object.keys(online)
+    });
+  });
+
+  // ENVIAR ALERTA
+  socket.on("enviar_alerta", ({ destino, mensagem }) => {
+    if (destino === "todos") {
+      Object.keys(maquinas).forEach(id => {
+        if (online[id]) {
+          io.to(online[id]).emit("alert", mensagem);
+        } else {
+          filaAlertas[id] ??= [];
+          filaAlertas[id].push(mensagem);
+        }
+      });
+      return;
+    }
+
+    // Individual
+    if (online[destino]) {
+      io.to(online[destino]).emit("alert", mensagem);
+    } else {
+      filaAlertas[destino] ??= [];
+      filaAlertas[destino].push(mensagem);
     }
   });
 
-  // 4. DESCONEXÃO
+  // DESCONECTAR
   socket.on("disconnect", () => {
-    const nomeSaiu = usuarios[socket.id];
-    if (nomeSaiu) {
-      console.log(`❌ Saiu: ${nomeSaiu}`);
-      delete usuarios[socket.id]; // Remove da memória
-      
-      // Avisa todo mundo que a lista mudou
-      const listaNomes = [...new Set(Object.values(usuarios))];
-      io.emit("lista_usuarios", listaNomes);
+    for (const id in online) {
+      if (online[id] === socket.id) {
+        delete online[id];
+        console.log(`❌ Máquina offline: ${id}`);
+      }
     }
+
+    io.emit("lista_maquinas", {
+      todas: Object.values(maquinas),
+      online: Object.keys(online)
+    });
   });
 });
 
