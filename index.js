@@ -85,6 +85,16 @@ io.on("connection", (socket) => {
   });
 });
 
+// Código para manter o servidor acordado no Render
+const URL_DO_SEU_SERVIDOR = "https://server-alert.onrender.com";
+
+setInterval(() => {
+  console.log("Mantendo o servidor acordado...");
+  fetch(URL_DO_SEU_SERVIDOR)
+    .then(() => console.log("Ping realizado com sucesso!"))
+    .catch((err) => console.error("Erro no ping:", err));
+}, 600000); // 600000ms = 10 minutos
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
