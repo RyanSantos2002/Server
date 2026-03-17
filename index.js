@@ -302,6 +302,31 @@ io.on("connection", (socket) => {
     delete lastMessageTime[socket.id];
     if (disconnectedId) emitirLista();
   });
+
+  // ===== VIDEO CALL SIGNALING =====
+  socket.on("video_call_request", ({ to, fromName }) => {
+    if (online[to]) {
+      io.to(online[to]).emit("video_call_request", { from: socket.machineId, fromName });
+    }
+  });
+
+  socket.on("video_call_response", ({ to, accepted }) => {
+    if (online[to]) {
+      io.to(online[to]).emit("video_call_response", { from: socket.machineId, accepted });
+    }
+  });
+
+  socket.on("video_call_signal", ({ to, signal }) => {
+    if (online[to]) {
+      io.to(online[to]).emit("video_call_signal", { from: socket.machineId, signal });
+    }
+  });
+
+  socket.on("video_call_hangup", ({ to }) => {
+    if (online[to]) {
+      io.to(online[to]).emit("video_call_hangup", { from: socket.machineId });
+    }
+  });
 });
 
 function emitirLista() {
