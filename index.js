@@ -100,7 +100,7 @@ io.on("connection", (socket) => {
     const isAdmin = ADMINS.some(admin => admin.toLowerCase() === cleanNome.toLowerCase());
     const isBlocked = blockedUsers.includes(cleanNome);
 
-    socket.emit("registro_sucesso", { isAdmin, isBlocked });
+    socket.emit("registro_sucesso", { isAdmin, isBlocked, nome: cleanNome });
     console.log(`✅ Registrado: ${cleanNome} (Admin: ${isAdmin}, Blocked: ${isBlocked})`);
 
     Object.keys(grupos).forEach(groupId => {
